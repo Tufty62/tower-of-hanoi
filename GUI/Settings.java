@@ -57,10 +57,9 @@ public class Settings {
         List<Monitor> monitors = getMonitors();
 
         this.resolutionDropdown.getItems().addAll(availableSizes);
-
         this.monitorDropdown.getItems().addAll(monitors);
 
-        this.resolutionDropdown.setValue(get_resolutions().getLast());
+        this.resolutionDropdown.setValue(availableSizes.getLast());
 
         for (Monitor monitor: monitors) {
             if (monitor.getScreen().equals(getCurrentScreen())) {
@@ -99,7 +98,7 @@ public class Settings {
     }
 
     private List<Resolution> get_resolutions(Screen screen) {
-        Rectangle2D bounds = screen.getVisualBounds();
+        Rectangle2D bounds = screen.getBounds();
 
         double maxWidth = bounds.getWidth();
         double maxHeight = bounds.getHeight();
@@ -137,7 +136,7 @@ public class Settings {
         
         for (int i = 0; i < screens.size(); i++) {
             Screen s = screens.get(i);
-            monitors.add(new Monitor(s, "Display " + (i+1) + ": " + s.getVisualBounds().getWidth() + "x" + s.getVisualBounds().getHeight()));    
+            monitors.add(new Monitor(s, "Display " + (i+1) + ": " + s.getBounds().getWidth() + "x" + s.getBounds().getHeight()));    
         }
 
         return monitors;
@@ -146,54 +145,52 @@ public class Settings {
     private void handleResolutionChange () {
         Resolution selectedResolution = this.resolutionDropdown.getValue();
 
-        if (selectedResolution != null) {
-            this.stage.setWidth(selectedResolution.getWidth());
-            this.stage.setHeight(selectedResolution.getHeight());
-
-            Screen screen = getCurrentScreen();
-            Rectangle2D bounds = screen.getVisualBounds();
-
-            double x = bounds.getMinX() + (bounds.getWidth() - this.stage.getWidth()) / 2;
-            double y = bounds.getMinY() + (bounds.getHeight() - this.stage.getHeight()) / 2;
-
-            this.stage.setX(x);
-            this.stage.setY(y);
+        if (selectedResolution == null) {
+            return;
         }
+
+        Screen screen = getCurrentScreen();
+        
+        applyResolution(selectedResolution, screen);
+
     }
 
     private void handleMonitorChange() {
         Monitor selectedMonitor = monitorDropdown.getValue();
 
-        if (selectedMonitor != null) {
-            Screen screen = selectedMonitor.getScreen();
-
-            if (stage.isFullScreen()) {
-                stage.setFullScreenExitHint("");
-                stage.setFullScreen(true);
-            }
-            else {
-                Rectangle2D bounds = screen.getVisualBounds();
-
-                List<Resolution> availableSizes = get_resolutions(screen);
-                Resolution smallestResolution = availableSizes.getLast();
-
-                this.stage.setWidth(smallestResolution.getWidth());
-                this.stage.setHeight(smallestResolution.getHeight());
-
-                double x = bounds.getMinX() + (bounds.getWidth() - this.stage.getWidth()) / 2;
-                double y = bounds.getMinY() + (bounds.getHeight() - this.stage.getHeight()) / 2;
-
-                this.stage.setX(x);
-                this.stage.setY(y);
-
-                this.resolutionDropdown.getItems().clear();
-                this.resolutionDropdown.getItems().addAll(availableSizes);
-                this.resolutionDropdown.setValue(availableSizes.getLast());
-                handleResolutionChange();
-            }
+        if (selectedMonitor == null) {
+            return;
         }
+        Screen screen = selectedMonitor.getScreen();
+
+        if (stage.isFullScreen()) {
+            stage.setFullScreenExitHint("");
+            stage.setFullScreen(true);
+            return;
+        }
+
+        List<Resolution> availableSizes = get_resolutions(screen);
+        Resolution smallestResolution = availableSizes.getLast();
+
+        this.resolutionDropdown.getItems().setAll(availableSizes);
+        this.resolutionDropdown.setValue(smallestResolution);
+        applyResolution(smallestResolution, screen);
     }
 
+    private void applyResolution(Resolution resolution, Screen screen) {
+        stage.setWidth(resolution.getWidth());
+        stage.setHeight(resolution.getHeight());
+
+        Rectangle2D bounds = screen.getVisualBounds();
+
+        double x = bounds.getMinX() + (bounds.getWidth() - stage.getWidth()) / 2;
+
+        double y = bounds.getMinY() + (bounds.getHeight() - stage.getHeight()) / 2;
+
+        stage.setX(x);
+        stage.setY(y);
+    }
+    
     private Screen getCurrentScreen() {
         double centerX = this.stage.getX() + this.stage.getWidth() / 2;
         double centerY = this.stage.getY() + this.stage.getHeight() / 2;
