@@ -1,5 +1,8 @@
 package GUI;
 import java.util.Map;
+
+import javafx.animation.PauseTransition;
+import javafx.util.Duration;
 import javafx.geometry.Rectangle2D;
 import javafx.scene.Scene;
 import javafx.scene.control.ComboBox;
@@ -10,7 +13,6 @@ import javafx.scene.control.CheckBox;
 import javafx.stage.Stage;
 import java.util.ArrayList;
 import java.util.List;
-import javafx.application.Platform;
 
 public class Settings {
 
@@ -18,6 +20,7 @@ public class Settings {
     private final Scene scene;
     private final ComboBox<Resolution> resolutionDropdown = new ComboBox<>();
     private final ComboBox<Monitor> monitorDropdown = new ComboBox<>();
+    private Screen pendingFullscreenScreen;
 
     private final Map<String, List<Resolution>> resolutions = Map.of(
         "16:9", List.of(
@@ -38,6 +41,7 @@ public class Settings {
 
     public Settings(Stage stage) {
         this.stage = stage;
+        FullscreenListener();
         
         //create elements
         Label title = new Label("Settings");
@@ -75,6 +79,10 @@ public class Settings {
 
         monitorDropdown.setOnAction(event -> {
             handleMonitorChange();
+        });
+
+        fullscreenCB.setOnAction(event -> {
+            handleFullscreenChange(fullscreenCB.isSelected());
         });
 
 
@@ -163,9 +171,9 @@ public class Settings {
         }
         Screen screen = selectedMonitor.getScreen();
 
-        if (stage.isFullScreen()) {
-            stage.setFullScreenExitHint("");
-            stage.setFullScreen(true);
+        if (this.stage.isFullScreen()) {
+            this.pendingFullscreenScreen = screen;
+            stage.setFullScreen(false);
             return;
         }
 
@@ -175,6 +183,16 @@ public class Settings {
         this.resolutionDropdown.getItems().setAll(availableSizes);
         this.resolutionDropdown.setValue(smallestResolution);
         applyResolution(smallestResolution, screen);
+    }
+
+    private void handleFullscreenChange(boolean fullscreen) {
+        if (fullscreen) {
+            this.stage.setFullScreenExitHint("");
+            this.stage.setFullScreen(true);
+        }
+        else {
+            this.stage.setFullScreen(false);
+        }
     }
 
     private void applyResolution(Resolution resolution, Screen screen) {
@@ -203,5 +221,29 @@ public class Settings {
         );
 
         return screens.get(0);
+    }
+
+    private void FullscreenListener() {
+        this.stage.fullScreenProperty().addListener((observable, wasFullScreen, isFullScreen) -> {
+            if (wasFullScreen && !isFullScreen && this.pendingFullscreenScreen != null) {
+
+                Screen screen = this.pendingFullscreenScreen;
+                this.pendingFullscreenScreen = null;
+
+                applyResolution(new Resolution(1280, 720), screen);
+
+                this.stage.setFullScreenExitHint("");
+                this.stage.setFullScreen(true);
+
+                PauseTransition pause = new PauseTransition(Duration.millis(100));
+
+                pause.setOnFinished(event -> {
+                    this.stage.setFullScreenExitHint("");
+                    this.stage.setFullScreen(true);
+                });
+
+                pause.play();
+            }
+        });
     }
 }
