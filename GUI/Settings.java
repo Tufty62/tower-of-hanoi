@@ -1,21 +1,22 @@
 package GUI;
 import java.util.Map;
-import javafx.collections.FXCollections;
-import javafx.collections.ObservableList;
 import javafx.geometry.Rectangle2D;
 import javafx.scene.Scene;
-import javafx.scene.layout.StackPane;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.layout.VBox;
 import javafx.stage.Screen;
+import javafx.scene.control.CheckBox;
 
 import java.util.ArrayList;
 import java.util.List;
 
 public class Settings {
 
-    Map<String, List<Resolution>> resolutions = Map.of(
+    private final Screen screen;
+    private final Scene scene;
+
+    private final Map<String, List<Resolution>> resolutions = Map.of(
         "16:9", List.of(
             new Resolution(3840, 2160),
             new Resolution(2560, 1440),
@@ -32,20 +33,42 @@ public class Settings {
         )
     );
 
-    public Scene getScene() {
-        StackPane root = new StackPane();
-
+    public Settings(Screen screen) {
+        this.screen = screen;
+        
         Label title = new Label("Settings");
 
         VBox vbox = new VBox(10);
-        Label resolution_lbl = new Label("Resolution:");
-        ComboBox<Resolution> resolutionDropdown; 
+        vbox.setStyle("-fx-background-color: black;");
 
-        return new Scene(root);
+        Label resolutionLbl = new Label("Resolution:");
+        List<Resolution> availableSizes = get_resolutions();
+        ComboBox<Resolution> resolutionDropdown = new ComboBox<>();
+        resolutionDropdown.getItems().addAll(availableSizes);
+
+        CheckBox fullscreenCB = new CheckBox("Fullscreen");
+        fullscreenCB.setIndeterminate(false);
+
+        Label monitorLbl = new Label("Monitor");
+        ComboBox<Monitor> monitorDropdown = new ComboBox<>();
+        monitorDropdown.getItems().addAll(getMonitors());
+
+        vbox.getChildren().add(title);
+        vbox.getChildren().add(resolutionLbl);
+        vbox.getChildren().add(resolutionDropdown);
+        vbox.getChildren().add(fullscreenCB);
+        vbox.getChildren().add(monitorLbl);
+        vbox.getChildren().add(monitorDropdown);
+
+        this.scene = new Scene(vbox);
     }
 
-    public List<Resolution> get_resolutions(Screen screen) {
-        Rectangle2D bounds = screen.getVisualBounds();
+    public Scene getScene() {
+        return this.scene;
+    }
+
+    private final List<Resolution> get_resolutions() {
+        Rectangle2D bounds = this.screen.getVisualBounds();
 
         double maxWidth = bounds.getWidth();
         double maxHeight = bounds.getHeight();
@@ -53,18 +76,18 @@ public class Settings {
         double targetAspectRatio = 16.0 / 10.0;
         double tolerance = 0.05;
 
-        List<Resolution> resolutions;
+        List<Resolution> availableSizes;
 
         if (isAspectRatio(maxWidth / maxHeight, targetAspectRatio, tolerance)) {
-            resolutions = this.resolutions.get("16:10");
+            availableSizes = this.resolutions.get("16:10");
             }
         else {
-            resolutions = this.resolutions.get("16:9");
+            availableSizes = this.resolutions.get("16:9");
         }
 
-        List<Resolution> availableResolutions = new ArrayList<Resolution>();
+        List<Resolution> availableResolutions = new ArrayList<>();
 
-        for (Resolution resolution: resolutions) {
+        for (Resolution resolution: availableSizes) {
             if (resolution.getWidth() <= maxWidth && resolution.getHeight() <= maxHeight) {
                 availableResolutions.add(resolution);
             }
@@ -73,8 +96,19 @@ public class Settings {
         return availableResolutions;
     }
 
-    public boolean isAspectRatio(double value, double target, double tolerance) {
+    private boolean isAspectRatio(double value, double target, double tolerance) {
         return Math.abs(value - target) < tolerance;
     }
-    
+
+    public final List<Monitor> getMonitors() {
+        List<Screen> screens = Screen.getScreens();
+        List<Monitor> monitors = new ArrayList<>();
+        
+        for (int i = 0; i < screens.size(); i++) {
+            monitors.add(new Monitor(screens.get(i), "Display " + (i+1)));    
+        }
+
+        return monitors;
+    }
+
 }

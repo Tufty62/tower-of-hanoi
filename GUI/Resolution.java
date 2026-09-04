@@ -9,7 +9,8 @@ public class Resolution {
         this.height = height;
     }
 
-    public String getResolution() {
+    @Override 
+    public String toString() {
         return Integer.toString(this.width) + "x" + Integer.toString(this.height);
     }
 
