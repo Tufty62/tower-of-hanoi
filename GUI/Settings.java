@@ -7,14 +7,17 @@ import javafx.scene.control.Label;
 import javafx.scene.layout.VBox;
 import javafx.stage.Screen;
 import javafx.scene.control.CheckBox;
-
+import javafx.stage.Stage;
 import java.util.ArrayList;
 import java.util.List;
+import javafx.application.Platform;
 
 public class Settings {
 
-    private final Screen screen;
+    private final Stage stage;
     private final Scene scene;
+    private final ComboBox<Resolution> resolutionDropdown = new ComboBox<>();
+    private final ComboBox<Monitor> monitorDropdown = new ComboBox<>();
 
     private final Map<String, List<Resolution>> resolutions = Map.of(
         "16:9", List.of(
@@ -33,26 +36,50 @@ public class Settings {
         )
     );
 
-    public Settings(Screen screen) {
-        this.screen = screen;
+    public Settings(Stage stage) {
+        this.stage = stage;
         
+        //create elements
         Label title = new Label("Settings");
 
         VBox vbox = new VBox(10);
         vbox.setStyle("-fx-background-color: black;");
 
         Label resolutionLbl = new Label("Resolution:");
-        List<Resolution> availableSizes = get_resolutions();
-        ComboBox<Resolution> resolutionDropdown = new ComboBox<>();
-        resolutionDropdown.getItems().addAll(availableSizes);
 
         CheckBox fullscreenCB = new CheckBox("Fullscreen");
         fullscreenCB.setIndeterminate(false);
 
         Label monitorLbl = new Label("Monitor");
-        ComboBox<Monitor> monitorDropdown = new ComboBox<>();
-        monitorDropdown.getItems().addAll(getMonitors());
 
+        //populate dropdowns
+        List<Resolution> availableSizes = get_resolutions();
+        List<Monitor> monitors = getMonitors();
+
+        this.resolutionDropdown.getItems().addAll(availableSizes);
+
+        this.monitorDropdown.getItems().addAll(monitors);
+
+        this.resolutionDropdown.setValue(get_resolutions().getLast());
+
+        for (Monitor monitor: monitors) {
+            if (monitor.getScreen().equals(getCurrentScreen())) {
+                this.monitorDropdown.setValue(monitor);
+                break;
+            }
+        } 
+
+        //handle inputs
+        resolutionDropdown.setOnAction(event -> {
+            handleResolutionChange();
+        });
+
+        monitorDropdown.setOnAction(event -> {
+            handleMonitorChange();
+        });
+
+
+        //add to root
         vbox.getChildren().add(title);
         vbox.getChildren().add(resolutionLbl);
         vbox.getChildren().add(resolutionDropdown);
@@ -60,15 +87,19 @@ public class Settings {
         vbox.getChildren().add(monitorLbl);
         vbox.getChildren().add(monitorDropdown);
 
-        this.scene = new Scene(vbox);
+        this.scene = new Scene(vbox, stage.getWidth(), stage.getHeight());
     }
 
     public Scene getScene() {
         return this.scene;
     }
 
-    private final List<Resolution> get_resolutions() {
-        Rectangle2D bounds = this.screen.getVisualBounds();
+    private List<Resolution> get_resolutions() {
+        return get_resolutions(getCurrentScreen());
+    }
+
+    private List<Resolution> get_resolutions(Screen screen) {
+        Rectangle2D bounds = screen.getVisualBounds();
 
         double maxWidth = bounds.getWidth();
         double maxHeight = bounds.getHeight();
@@ -100,15 +131,80 @@ public class Settings {
         return Math.abs(value - target) < tolerance;
     }
 
-    public final List<Monitor> getMonitors() {
+    private List<Monitor> getMonitors() {
         List<Screen> screens = Screen.getScreens();
         List<Monitor> monitors = new ArrayList<>();
         
         for (int i = 0; i < screens.size(); i++) {
-            monitors.add(new Monitor(screens.get(i), "Display " + (i+1)));    
+            Screen s = screens.get(i);
+            monitors.add(new Monitor(s, "Display " + (i+1) + ": " + s.getVisualBounds().getWidth() + "x" + s.getVisualBounds().getHeight()));    
         }
 
         return monitors;
     }
 
+    private void handleResolutionChange () {
+        Resolution selectedResolution = this.resolutionDropdown.getValue();
+
+        if (selectedResolution != null) {
+            this.stage.setWidth(selectedResolution.getWidth());
+            this.stage.setHeight(selectedResolution.getHeight());
+
+            Screen screen = getCurrentScreen();
+            Rectangle2D bounds = screen.getVisualBounds();
+
+            double x = bounds.getMinX() + (bounds.getWidth() - this.stage.getWidth()) / 2;
+            double y = bounds.getMinY() + (bounds.getHeight() - this.stage.getHeight()) / 2;
+
+            this.stage.setX(x);
+            this.stage.setY(y);
+        }
+    }
+
+    private void handleMonitorChange() {
+        Monitor selectedMonitor = monitorDropdown.getValue();
+
+        if (selectedMonitor != null) {
+            Screen screen = selectedMonitor.getScreen();
+
+            if (stage.isFullScreen()) {
+                stage.setFullScreenExitHint("");
+                stage.setFullScreen(true);
+            }
+            else {
+                Rectangle2D bounds = screen.getVisualBounds();
+
+                List<Resolution> availableSizes = get_resolutions(screen);
+                Resolution smallestResolution = availableSizes.getLast();
+
+                this.stage.setWidth(smallestResolution.getWidth());
+                this.stage.setHeight(smallestResolution.getHeight());
+
+                double x = bounds.getMinX() + (bounds.getWidth() - this.stage.getWidth()) / 2;
+                double y = bounds.getMinY() + (bounds.getHeight() - this.stage.getHeight()) / 2;
+
+                this.stage.setX(x);
+                this.stage.setY(y);
+
+                this.resolutionDropdown.getItems().clear();
+                this.resolutionDropdown.getItems().addAll(availableSizes);
+                this.resolutionDropdown.setValue(availableSizes.getLast());
+                handleResolutionChange();
+            }
+        }
+    }
+
+    private Screen getCurrentScreen() {
+        double centerX = this.stage.getX() + this.stage.getWidth() / 2;
+        double centerY = this.stage.getY() + this.stage.getHeight() / 2;
+
+        List<Screen> screens = Screen.getScreensForRectangle(
+            centerX,
+            centerY,
+            1,
+            1
+        );
+
+        return screens.get(0);
+    }
 }
